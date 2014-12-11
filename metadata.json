@@ -1,0 +1,14 @@
+{
+  "name": "dell-bmc",
+  "version": "0.1.0",
+  "author": "dell",
+  "summary": "Puppet module to control BMC servers",
+  "license": "Apache 2.0",
+  "source": "http://github.com/dell-asm/dell-bmc",
+  "project_page": "https://github.com/dell-asm/dell-bmc",
+  "issues_url": "https://github.com/dell-asm/dell-bmc/issues",
+  "dependencies": [
+    {"name":"puppetlabs-stdlib","version_requirement":">= 1.0.0"}
+  ]
+}
+
