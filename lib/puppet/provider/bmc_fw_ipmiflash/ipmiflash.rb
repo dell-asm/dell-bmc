@@ -2,6 +2,8 @@ provider_path = Pathname.new(__FILE__).parent.parent
 require 'puppet/bmc/util'
 require 'asm/util'
 require 'fileutils'
+require 'tmpdir'
+require 'open3'
 
 Puppet::Type.type(:bmc_fw_ipmiflash).provide(
   :ipmiflash,
@@ -9,13 +11,14 @@ Puppet::Type.type(:bmc_fw_ipmiflash).provide(
   BMC_BIN = "/opt/dell/pec/bmc"
   IPMI_TOOL = "/usr/bin/ipmitool"
   IPMI_FLASH = "/opt/dell/pec/ipmiflash"
-  
+  UNZIP = %x[which unzip].chop
+  FIND = %x[which find].chop
+
   def exists?
     @firmwares = ASM::Util.asm_json_array(resource[:bmc_firmware])
-    @copy_to_tftp = resource[:copy_to_tftp]
     @installed_versions = {}
     up_to_date = fw_up_to_date?
-    Puppet.debug("#{up_to_date}")
+    #Returns false if update is required
     up_to_date
   end
 
@@ -28,11 +31,12 @@ Puppet::Type.type(:bmc_fw_ipmiflash).provide(
     Puppet.debug("firmwares: #{@firmwares}")
     @firmwares.each do |fw|
       case fw['component_name'].downcase
-      when 'bios'
+      when '159'
+        fw['component_name'] = 'bios'
         fw['version'] != @installed_versions['BIOSversion'] ? upgrades_needed << fw : nil
-      when 'bmc'
+      when 'bmc'##TODO Find id
         fw['version'] != @installed_versions['BMCversion'] ? upgrades_needed << fw : nil
-      when 'fcb'
+      when 'fcb' ##TODO find id
         fw['version'] != @installed_versions['FCBversion'] ? upgrades_needed << fw : nil
       else
       end
@@ -52,19 +56,29 @@ Puppet::Type.type(:bmc_fw_ipmiflash).provide(
   def run_cmd(cmd)
     sleeptime = 30
     4.times do
-      resp = %x[#{cmd}]
-      if resp.length == 0
+      std_out, std_err, status = Open3.capture3(cmd)
+      if std_out.length == 0
         Puppet.debug("BMC 0 length response received, retrying after sleep")
         sleep sleeptime
         sleeptime += 30
-      elsif resp.include? 'unresponsive BMC'
+      elsif std_out.include? 'unresponsive BMC'
         Puppet.debug("BMC connection failed, retrying after sleep")
+        sleep sleeptime
+        sleeptime += 30
+      elsif std_err.length != 0
+        Puppet.debug("ERROR: #{std_err}.\n Retrying after sleep.")
+        sleep sleeptime
+        sleeptime += 30
+      elsif status.exitstatus != 0
+        Puppet.debug("ERROR: Non-zero exit code returned.\n#{std_out}\n Retrying after sleep.")
+        sleep sleeptime
+        sleeptime += 30
       else
-        Puppet.debug("BMC RESPONSE: #{resp}")
-        return resp.encode('utf-8', 'binary', :invalid => :replace, :undef => :replace)
+        Puppet.debug("RESPONSE: #{std_out}")
+        return std_out.encode('utf-8', 'binary', :invalid => :replace, :undef => :replace)
       end
     end
-    raise Puppet::Error, "Could not connect to the BMC endpoint"
+    raise Puppet::Error, "API Call error. Failing after 4 retries.."
   end
 
   def get_versions(resp)
@@ -84,9 +98,6 @@ Puppet::Type.type(:bmc_fw_ipmiflash).provide(
   def create
     @upgrades_needed.each do |firmware|
       Puppet.debug("Upgrade needed for #{firmware}")
-      if @copy_to_tftp
-        move_to_tftp(resource[:path])
-      end
       mc_reset
       ipmi_flash(firmware)
     end
@@ -105,7 +116,7 @@ Puppet::Type.type(:bmc_fw_ipmiflash).provide(
   end
 
   def ipmi_flash(firmware)
-    cmd = "#{IPMI_FLASH} -p -H #{transport[:host]} -U #{transport[:user]} -Pi #{transport[:password]} #{firmware['component_name']} #{firmware['location']}"
+    cmd = "#{IPMI_FLASH} -p -H #{transport[:host]} -U #{transport[:user]} -P #{transport[:password]} #{firmware['component_name']} #{firmware['location']}"
     resp = run_cmd(cmd)
     Puppet.debug("#{resp}")
     if resp.include? 'Error condition during update process'
@@ -128,16 +139,4 @@ Puppet::Type.type(:bmc_fw_ipmiflash).provide(
     @transport ||= Puppet::Bmc::Util.get_transport()
   end
 
-  def move_to_tftp(path)
-    Puppet.debug("Copying files to TFTP share")
-    tftp_share = @copy_to_tftp[0]
-    tftp_path = @copy_to_tftp[1]
-    full_tftp_path = tftp_share + "/" + tftp_path
-    tftp_dir = full_tftp_path.split('/')[0..-2].join('/')
-    if !File.exist? tftp_dir
-      FileUtils.mkdir_p tftp_dir
-    end
-    FileUtils.cp path, full_tftp_path
-    FileUtils.chmod_R 0755, tftp_dir
-  end
 end
