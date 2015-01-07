@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-dell-bmc
+Dell BMC Puppet Module
 ========
 =======
 # bmc
@@ -7,78 +6,53 @@ dell-bmc
 #### Table of Contents
 
 1. [Overview](#overview)
-2. [Module Description - What the module does and why it is useful](#module-description)
-3. [Setup - The basics of getting started with bmc](#setup)
+2. [Module Description](#module-description)
+3. [Setup](#setup)
     * [What bmc affects](#what-bmc-affects)
     * [Setup requirements](#setup-requirements)
     * [Beginning with bmc](#beginning-with-bmc)
-4. [Usage - Configuration options and additional functionality](#usage)
-5. [Reference - An under-the-hood peek at what the module is doing and how](#reference)
-5. [Limitations - OS compatibility, etc.](#limitations)
-6. [Development - Guide for contributing to the module](#development)
+4. [Usage](#usage)
+5. [Reference](#reference)
+5. [Limitations](#limitations)
+6. [Development](#development)
 
 ## Overview
 
-A one-maybe-two sentence summary of what the module does/what problem it solves.
-This is your 30 second elevator pitch for your module. Consider including
-OS/Puppet version it works with.
+This puppet module is used for managing bare-metal servers with the BMC API
 
 ## Module Description
 
-If applicable, this section should have a brief description of the technology
-the module integrates with and what that integration enables. This section
-should answer the questions: "What does this module *do*?" and "Why would I use
-it?"
-
-If your module has a range of functionality (installation, configuration,
-management, etc.) this is the time to mention it.
+Currently this module only suppoerts updating the bios firmware on BMC servers.
+(tested with ... #TODO)
 
 ## Setup
 
-### What bmc affects
+### Firmware update requirements
 
-* A list of files, packages, services, or operations that the module will alter,
-  impact, or execute on the system it's installed on.
-* This is a great place to stick any warnings.
-* Can be in list or paragraph form.
-
-### Setup Requirements **OPTIONAL**
-
-If your module requires anything extra before setting up (pluginsync enabled,
-etc.), mention it here.
-
-### Beginning with bmc
-
-The very basic steps needed for a user to get the module up and running.
-
-If your most recent release breaks compatibility or requires particular steps
-for upgrading, you may wish to include an additional section here: Upgrading
-(For an example, see http://forge.puppetlabs.com/puppetlabs/firewall).
+* BIOS firmware binary
+* Tftp server that will share binaries
+* IPMIFlash (installed in default location [/opt/dell/pec])
+* IPMITool 
+* BMCTool (installed in default loaction [/opt/dell/pec])
 
 ## Usage
 
-Put the classes, types, and resources for customizing, configuring, and doing
-the fancy stuff with your module here.
+```puppet
+bmc_fw_ipmiflash { "update":
+        bmc_firmware => [{component_name => 'bios', version => '2.5.3', location => 'tftp://localhost/path/to/firmware.hdr'}],
+        ensure       => present,
+}
+```
 
 ## Reference
 
-Here, list the classes, types, providers, facts, etc contained in your module.
-This section should include all of the under-the-hood workings of your module so
-people know what the module is touching on their system but don't need to mess
-with things. (We are working on automating this section!)
+### This Module Uses the following tools
+
+* Baseboard Management Controller (http://www.dell.com/downloads/global/power/ps4q04-20040110-zhuo.pdf)
+* IPMI Tool (http://linux.die.net/man/1/ipmitool)
+* IPMI Flash 
 
 ## Limitations
 
-This is where you list OS compatibility, version compatibility, etc.
+This only supports a forced restart at this time.
 
-## Development
-
-Since your module is awesome, other users will want to play with it. Let them
-know what the ground rules for contributing are.
-
-## Release Notes/Contributors/Etc **Optional**
-
-If you aren't using changelog, put your release notes here (though you should
-consider using changelog). You may also add any additional sections you feel are
-necessary or important to include here. Please use the `## ` header.
->>>>>>> 8a4f0f9... Initialize boilerplate bmc puppet module
